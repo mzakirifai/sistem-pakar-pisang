@@ -13,17 +13,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Sembunyikan Top Bar (Menu & Ikon GitHub) serta Footer Streamlit
+# Hanya menyembunyikan footer dan elemen rahasia tanpa menutup tombol sidebar
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
             footer {visibility: hidden;}
-            .stAppHeader {display: none;}
             .stAppFooter {display: none;}
-            [data-testid="stStatusWidget"] {visibility: hidden;}
-            div[class*="ViewerBadge"] {display: none !important;}
-            div[class*="styles_viewerBadge"] {display: none !important;}
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
