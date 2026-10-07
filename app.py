@@ -20,6 +20,10 @@ hide_streamlit_style = """
             header {visibility: hidden;}
             footer {visibility: hidden;}
             .stAppHeader {display: none;}
+            .stAppFooter {display: none;}
+            [data-testid="stStatusWidget"] {visibility: hidden;}
+            div[class*="ViewerBadge"] {display: none !important;}
+            div[class*="styles_viewerBadge"] {display: none !important;}
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
