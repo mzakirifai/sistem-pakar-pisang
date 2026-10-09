@@ -147,14 +147,17 @@ with tab1:
                 options=pilihan,
                 key=f"input_{nama_atribut}"
             )
-            
+        
+        def reset_form():
+            for nama_atribut, pilihan in atribut_input.items():
+                st.session_state[f"input_{nama_atribut}"] = pilihan[0]
+
         st.markdown("<br>", unsafe_allow_html=True)
         col_b1, col_b2 = st.columns(2)
         with col_b1:
             btn_diagnosa = st.button("🚀 Jalankan Diagnosa", type="primary", use_container_width=True)
         with col_b2:
-            if st.button("🔄 Reset Form", use_container_width=True):
-                st.rerun()
+            st.button("🔄 Reset Form", on_click=reset_form, use_container_width=True)
 
     with col_output:
         st.markdown("#### 2. Hasil Diagnosa & Peringkat Kecocokan")
