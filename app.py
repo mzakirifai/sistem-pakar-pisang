@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 from database import fetch_attributes, fetch_rules
-from inference import diagnosis_dua_lapis, cari_rule_terbaik, gabungkan_cf
+from inference import diagnosis_dua_lapis, hitung_kecocokan
 
 # Konfigurasi Halaman
 st.set_page_config(
@@ -207,17 +207,22 @@ with tab1:
                 
                 rules_lapis2 = {k: v for k, v in rules.items() if v["layer"] == 2}
                 kategori_scores = {}
-                
+                fakta_lapis2 = {**fakta_user, "dugaan_awal": hasil["dugaan_awal"]}
+
                 for r_code, r_data in rules_lapis2.items():
                     kes = r_data["kesimpulan"]
-                    cocok = sum(1 for k, v in r_data["kondisi"].items() if fakta_user.get(k) == v or k == "dugaan_awal")
+                    cocok = hitung_kecocokan(r_data, fakta_lapis2)
                     total_k = len(r_data["kondisi"])
                     ratio = cocok / total_k
                     
                     if kes not in kategori_scores or ratio > kategori_scores[kes]:
                         kategori_scores[kes] = ratio
 
-                for kes_name, score in sorted(kategori_scores.items(), key=lambda x: x[1], reverse=True):
+                for kes_name, score in sorted(
+                    kategori_scores.items(),
+                    key=lambda x: (x[1], x[0] == hasil["kesimpulan"]),
+                    reverse=True,
+                ):
                     c_col1, c_col2 = st.columns([3, 1])
                     with c_col1:
                         st.caption(f"**{kes_name}**")
