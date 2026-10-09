@@ -151,6 +151,7 @@ with tab1:
         def reset_form():
             for nama_atribut, pilihan in atribut_input.items():
                 st.session_state[f"input_{nama_atribut}"] = pilihan[0]
+            st.session_state.pop("hasil_terakhir", None)
 
         st.markdown("<br>", unsafe_allow_html=True)
         col_b1, col_b2 = st.columns(2)
@@ -163,17 +164,23 @@ with tab1:
         st.markdown("#### 2. Hasil Diagnosa & Peringkat Kecocokan")
         
         if btn_diagnosa:
-            hasil = diagnosis_dua_lapis(rules, fakta_user)
+            hasil_baru = diagnosis_dua_lapis(rules, fakta_user)
+            st.session_state.hasil_terakhir = {"fakta": fakta_user.copy(), "hasil": hasil_baru}
+            if hasil_baru is not None:
+                # Simpan ke Riwayat
+                st.session_state.history.append({
+                    "fakta": fakta_user.copy(),
+                    "hasil": hasil_baru,
+                })
+
+        if "hasil_terakhir" in st.session_state:
+            # Tampilkan hasil terakhir dari session_state agar tidak hilang saat tombol unduh diklik
+            fakta_user = st.session_state.hasil_terakhir["fakta"]
+            hasil = st.session_state.hasil_terakhir["hasil"]
 
             if hasil is None:
                 st.error("⚠️ Tidak dapat menentukan diagnosis dari kombinasi ciri fisik ini.")
             else:
-                # Simpan ke Riwayat
-                st.session_state.history.append({
-                    "fakta": fakta_user.copy(),
-                    "hasil": hasil,
-                })
-
                 # Ringkasan Diagnosa Utama
                 st.success(f"### 🎯 Kesimpulan Utama: **{hasil['kesimpulan']}**")
                 st.markdown(f"**Rekomendasi Penanganan:** {hasil['rekomendasi']}")
