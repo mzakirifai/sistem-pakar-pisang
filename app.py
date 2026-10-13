@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 from database import fetch_attributes, fetch_rules
-from inference import diagnosis_dua_lapis, hitung_kecocokan
+from inference import diagnosis_dua_lapis, jelaskan_tidak_cocok
 
 # Konfigurasi Halaman
 st.set_page_config(
@@ -71,7 +71,7 @@ except Exception as e:
     st.error(f"❌ Gagal terhubung ke database: {e}")
     st.stop()
 
-# Sidebar - Referensi Akademis (5 Jurnal) & Informasi System
+# Sidebar - Referensi Ilmiah & Informasi Sistem
 with st.sidebar:
     st.markdown("### 🍌 Sistem Pakar Pisang")
     st.write("Aplikasi mendiagnosis kematangan pisang berdasarkan 4 indikator fisik pascapanen.")
@@ -82,16 +82,19 @@ with st.sidebar:
     st.markdown("• Certainty Factor (CF)")
     
     st.markdown("---")
-    st.markdown("**📚 Referensi 5 Jurnal Ilmiah:**")
-    st.caption("1. *Sutowijoyo & Widodo (2013)* — Kriteria Kematangan Pascapanen Pisang (IPB)")
-    st.caption("2. *Sularida et al. (2018)* — Identifikasi Kematangan Pisang Ekstraksi Ciri Warna (UHO)")
-    st.caption("3. *Kosasih (2021)* — Klasifikasi Kematangan Pisang Ekstraksi Tekstur & KNN")
-    st.caption("4. *Lende et al. (2023)* — Penerapan Sistem Pakar Diagnosa Penyakit Pisang (JATI)")
-    st.caption("5. *Dayan et al. (2026)* — Image Processing Histogram Warna Kematangan Pisang (IPB)")
+    st.markdown("**📚 Referensi Ilmiah:**")
+    st.caption("1. *Sutowijoyo & Widodo (2013)* — Kriteria Kematangan Pascapanen Pisang Raja Bulu dan Pisang Kepok (IPB)")
+    st.caption("2. *Sularida et al. (2018)* — Identifikasi Tingkat Kematangan Buah Pisang: Ekstraksi Ciri Statistik pada Warna Kulit (UHO)")
+    st.caption("3. *Zhu et al. (2018)* — Volatile Compounds in Two Banana Cultivars at Different Ripening Stages (Molecules)")
+    st.caption("4. *Maduwanthi & Marapana (2017)* — Biochemical Changes during Ripening of Banana: A Review (IJFSN)")
+    st.caption("5. *Maduwanthi & Marapana (2019)* — Induced Ripening Agents and Their Effect on Fruit Quality of Banana (IJFS)")
+    st.caption("6. *Kosasih (2021)* — Klasifikasi Tingkat Kematangan Pisang: Ekstraksi Fitur Tekstur & KNN (JNTETI)")
+    st.caption("7. *Dayan et al. (2026)* — Image Processing Berbasis Histogram Warna untuk Kematangan Pisang (JATI)")
+    st.caption("Rumus CF mengikuti materi SBP Pertemuan 4 - Inferensi Pengetahuan (UNINDRA). Nilai CF pakar tiap rule ditetapkan tim, bukan angka dari jurnal; CF pengguna dianggap 1.")
 
 # Hitung statistik untuk top banner
-total_atribut = len([k for k in attributes.keys() if k != "dugaan_awal"])
-total_kesimpulan = len(attributes.get("dugaan_awal", []))
+total_atribut = len(attributes)
+total_kesimpulan = len({r["kesimpulan"] for r in rules.values() if r["layer"] == 2})
 total_rules = len(rules)
 
 # Header & Top Stat Counter
@@ -139,9 +142,8 @@ with tab1:
         }
         
         fakta_user: dict[str, str] = {}
-        atribut_input = {k: v for k, v in attributes.items() if k != "dugaan_awal"}
 
-        for nama_atribut, pilihan in atribut_input.items():
+        for nama_atribut, pilihan in attributes.items():
             fakta_user[nama_atribut] = st.selectbox(
                 label_atribut.get(nama_atribut, nama_atribut),
                 options=pilihan,
@@ -149,7 +151,7 @@ with tab1:
             )
         
         def reset_form():
-            for nama_atribut, pilihan in atribut_input.items():
+            for nama_atribut, pilihan in attributes.items():
                 st.session_state[f"input_{nama_atribut}"] = pilihan[0]
             st.session_state.pop("hasil_terakhir", None)
 
@@ -161,7 +163,7 @@ with tab1:
             st.button("🔄 Reset Form", on_click=reset_form, use_container_width=True)
 
     with col_output:
-        st.markdown("#### 2. Hasil Diagnosa & Peringkat Kecocokan")
+        st.markdown("#### 2. Hasil Diagnosa")
         
         if btn_diagnosa:
             hasil_baru = diagnosis_dua_lapis(rules, fakta_user)
@@ -179,20 +181,23 @@ with tab1:
             hasil = st.session_state.hasil_terakhir["hasil"]
 
             if hasil is None:
-                st.error("⚠️ Tidak dapat menentukan diagnosis dari kombinasi ciri fisik ini.")
+                st.error("⚠️ Tidak ada aturan yang cocok dengan kombinasi ciri fisik ini. Periksa kembali pengamatan.")
+                info = jelaskan_tidak_cocok(rules, fakta_user)
+                if info is not None:
+                    st.markdown(f"Dari warna kulit, dugaan awalnya **{info['dugaan_awal']}**. Ciri khas fase ini di basis pengetahuan:")
+                    for p in info["profil_khas"]:
+                        ciri = ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in p["kondisi"].items())
+                        st.markdown(f"- {ciri} ➔ **{p['kesimpulan']}**")
             else:
                 # Ringkasan Diagnosa Utama
                 st.success(f"### 🎯 Kesimpulan Utama: **{hasil['kesimpulan']}**")
                 st.markdown(f"**Rekomendasi Penanganan:** {hasil['rekomendasi']}")
                 st.markdown(f"**Tingkat Kepastian (CF Final):** `{hasil['cf']*100:.1f}%` ({hasil['cf']} CF)")
-                
-                if hasil["is_partial_match"]:
-                    st.warning("⚠️ **Pendekatan Parsial:** Ciri fisik tidak cocok 100% dengan aturan baku, angka di atas adalah perkiraan terdekat.")
 
                 # Fitur Download Laporan Hasil Diagnosa
                 laporan_txt = (
                     f"=== LAPORAN HASIL DIAGNOSIS KEMATANGAN PISANG ===\n\n"
-                    f"1. OBSERVASIFISIK:\n"
+                    f"1. OBSERVASI FISIK:\n"
                     f"   - Warna Kulit : {fakta_user['warna_kulit']}\n"
                     f"   - Tekstur Buah: {fakta_user['tekstur']}\n"
                     f"   - Aroma       : {fakta_user['aroma']}\n"
@@ -213,37 +218,11 @@ with tab1:
                 )
 
                 st.markdown("---")
-                st.markdown("##### 📊 Peringkat Kecocokan Semua Kategori")
-                
-                rules_lapis2 = {k: v for k, v in rules.items() if v["layer"] == 2}
-                kategori_scores = {}
-                fakta_lapis2 = {**fakta_user, "dugaan_awal": hasil["dugaan_awal"]}
-
-                for r_code, r_data in rules_lapis2.items():
-                    kes = r_data["kesimpulan"]
-                    cocok = hitung_kecocokan(r_data, fakta_lapis2)
-                    total_k = len(r_data["kondisi"])
-                    ratio = cocok / total_k
-                    
-                    if kes not in kategori_scores or ratio > kategori_scores[kes]:
-                        kategori_scores[kes] = ratio
-
-                for kes_name, score in sorted(
-                    kategori_scores.items(),
-                    key=lambda x: (x[1], x[0] == hasil["kesimpulan"]),
-                    reverse=True,
-                ):
-                    c_col1, c_col2 = st.columns([3, 1])
-                    with c_col1:
-                        st.caption(f"**{kes_name}**")
-                        st.progress(float(score))
-                    with c_col2:
-                        st.markdown(f"**{score*100:.1f}%**")
-
                 with st.expander("🔍 Detail Transparansi Penalaran & Diagram Alur (Explainable AI)"):
                     st.write(f"• **Lapis 1:** Rule `{hasil['rule_lapis1']}` ➔ Dugaan Awal: **{hasil['dugaan_awal']}**")
                     st.write(f"• **Lapis 2:** Rule `{', '.join(hasil['rule_lapis2'])}` ➔ Hasil Akhir: **{hasil['kesimpulan']}**")
-                    st.latex(r"CF_{final} = CF_{Lapis1} \times CF_{Lapis2} = " + f"{hasil['cf']}")
+                    cf_lapis2 = round(hasil["cf"] / hasil["cf_lapis1"], 3)
+                    st.latex(r"CF_{final} = CF_{Lapis1} \times CF_{Lapis2} = " + f"{hasil['cf_lapis1']} \\times {cf_lapis2} = {hasil['cf']}")
                     
                     st.markdown("---")
                     st.markdown("**Diagram Alur Penalaran Berhierarki:**")
@@ -311,7 +290,8 @@ with tab2:
             "JIKA (Kondisi)": kondisi_str,
             "MAKA (Kesimpulan)": r_val["kesimpulan"],
             "Nilai CF": r_val["nilai_cf"],
-            "Rekomendasi": r_val["rekomendasi"]
+            "Rekomendasi": r_val["rekomendasi"],
+            "Sumber": r_val["sumber"]
         })
     df_rules = pd.DataFrame(rules_data)
     st.dataframe(df_rules, use_container_width=True, hide_index=True)
@@ -324,11 +304,10 @@ with tab2:
         st.markdown("#### 2. Daftar Indikator Fisik")
         attr_data = []
         for a_name, a_vals in attributes.items():
-            if a_name != "dugaan_awal":
-                attr_data.append({
-                    "Indikator": a_name.replace("_", " ").title(),
-                    "Pilihan Nilai Observation": ", ".join(a_vals)
-                })
+            attr_data.append({
+                "Indikator": a_name.replace("_", " ").title(),
+                "Pilihan Nilai Pengamatan": ", ".join(a_vals)
+            })
         st.dataframe(pd.DataFrame(attr_data), use_container_width=True, hide_index=True)
 
     with col_tb2:
@@ -336,7 +315,7 @@ with tab2:
         kes_data = []
         seen = set()
         for r_val in rules.values():
-            if r_val["kesimpulan"] not in seen:
+            if r_val["layer"] == 2 and r_val["kesimpulan"] not in seen:
                 seen.add(r_val["kesimpulan"])
                 kes_data.append({
                     "Kategori Kematangan": r_val["kesimpulan"],
