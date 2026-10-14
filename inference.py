@@ -1,4 +1,9 @@
-"""Mesin inferensi forward chaining 2 lapis untuk diagnosis kematangan pisang."""
+"""Mesin inferensi forward chaining 2 lapis untuk diagnosis kematangan pisang.
+
+Sebuah rule hanya menyala bila SEMUA kondisinya terpenuhi. CF sebuah rule dihitung
+sebagai min(CF premis) x CF rule. Ciri hasil pengamatan langsung dianggap CF 1, sehingga
+pada lapis 2 nilai min() ditentukan oleh CF dugaan awal dari lapis 1.
+"""
 
 
 def hitung_kecocokan(rule: dict, fakta: dict[str, str]) -> int:
@@ -10,20 +15,13 @@ def hitung_kecocokan(rule: dict, fakta: dict[str, str]) -> int:
     return jumlah_cocok
 
 
-def cari_rule_terbaik(rules: dict[str, dict], fakta: dict[str, str]) -> tuple[list[tuple[str, dict]], int]:
-    """Mencari rule dengan skor kecocokan tertinggi terhadap fakta."""
-    skor_tertinggi = 0
-    rule_terbaik: list[tuple[str, dict]] = []
-
-    for kode_rule, rule in rules.items():
-        skor = hitung_kecocokan(rule, fakta)
-        if skor > skor_tertinggi:
-            skor_tertinggi = skor
-            rule_terbaik = [(kode_rule, rule)]
-        elif skor == skor_tertinggi and skor > 0:
-            rule_terbaik.append((kode_rule, rule))
-
-    return rule_terbaik, skor_tertinggi
+def cari_rule_cocok(rules: dict[str, dict], fakta: dict[str, str]) -> list[tuple[str, dict]]:
+    """Mencari semua rule yang seluruh kondisinya terpenuhi oleh fakta."""
+    return [
+        (kode_rule, rule)
+        for kode_rule, rule in rules.items()
+        if hitung_kecocokan(rule, fakta) == len(rule["kondisi"])
+    ]
 
 
 def gabungkan_cf(cf_lama: float, cf_baru: float) -> float:
@@ -31,63 +29,58 @@ def gabungkan_cf(cf_lama: float, cf_baru: float) -> float:
     return cf_lama + cf_baru * (1 - cf_lama)
 
 
-def diagnosis(rules: dict[str, dict], fakta: dict[str, str], min_skor: int = 1) -> dict | None:
-    """Mencocokkan fakta ke satu set rule dan mengembalikan kesimpulannya."""
-    rule_terbaik, skor_tertinggi = cari_rule_terbaik(rules, fakta)
+def diagnosis(rules: dict[str, dict], fakta: dict[str, str], cf_premis: float = 1.0) -> dict | None:
+    """Menjalankan rule yang seluruh kondisinya terpenuhi dan mengembalikan kesimpulannya.
 
-    # Jika tidak ada yang cocok atau di bawah threshold minimal
-    if not rule_terbaik or skor_tertinggi < min_skor:
+    cf_premis adalah CF terkecil di antara premis. Premis hasil pengamatan bernilai 1,
+    jadi nilainya hanya berubah bila ada premis hasil inferensi (dugaan awal).
+    """
+    rule_cocok = cari_rule_cocok(rules, fakta)
+    if not rule_cocok:
         return None
 
     hasil_per_kesimpulan: dict[str, dict] = {}
 
-    for kode_rule, rule in rule_terbaik:
-        jumlah_kondisi = len(rule["kondisi"])
-        # Hitung CF terbobot berdasarkan rasio kecocokan kondisi
-        rasio_cocok = skor_tertinggi / jumlah_kondisi
-        cf_rule_terbobot = rule["nilai_cf"] * rasio_cocok
+    for kode_rule, rule in rule_cocok:
+        cf_rule = cf_premis * rule["nilai_cf"]
         kesimpulan = rule["kesimpulan"]
 
         if kesimpulan not in hasil_per_kesimpulan:
             hasil_per_kesimpulan[kesimpulan] = {
-                "cf": cf_rule_terbobot,
+                "cf": cf_rule,
                 "rekomendasi": rule["rekomendasi"],
                 "rule_codes": [kode_rule],
-                "jumlah_kondisi": jumlah_kondisi
             }
         else:
             cf_lama = hasil_per_kesimpulan[kesimpulan]["cf"]
-            hasil_per_kesimpulan[kesimpulan]["cf"] = gabungkan_cf(cf_lama, cf_rule_terbobot)
+            hasil_per_kesimpulan[kesimpulan]["cf"] = gabungkan_cf(cf_lama, cf_rule)
             hasil_per_kesimpulan[kesimpulan]["rule_codes"].append(kode_rule)
 
     kesimpulan_terpilih = max(hasil_per_kesimpulan, key=lambda k: hasil_per_kesimpulan[k]["cf"])
     data_terpilih = hasil_per_kesimpulan[kesimpulan_terpilih]
 
-    is_partial = skor_tertinggi < data_terpilih["jumlah_kondisi"]
-
     return {
         "kesimpulan": kesimpulan_terpilih,
         "rekomendasi": data_terpilih["rekomendasi"],
         "cf": round(data_terpilih["cf"], 3),
-        "is_partial_match": is_partial,
         "rule_codes": data_terpilih["rule_codes"],
     }
 
 
 def diagnosis_dua_lapis(rules: dict[str, dict], fakta_user: dict[str, str]) -> dict | None:
-    """Menjalankan forward chaining 2 lapis: warna kulit -> dugaan awal -> kesimpulan akhir."""
+    """Menjalankan forward chaining 2 lapis: warna kulit -> dugaan awal -> kesimpulan akhir.
+
+    Mengembalikan None bila tidak ada rule yang seluruh kondisinya terpenuhi.
+    """
     rules_lapis1 = {k: v for k, v in rules.items() if v["layer"] == 1}
     rules_lapis2 = {k: v for k, v in rules.items() if v["layer"] == 2}
 
-    fakta_warna = {"warna_kulit": fakta_user["warna_kulit"]}
-    rule_menang_1, _ = cari_rule_terbaik(rules_lapis1, fakta_warna)
-
-    if not rule_menang_1:
+    hasil_lapis1 = diagnosis(rules_lapis1, {"warna_kulit": fakta_user["warna_kulit"]})
+    if hasil_lapis1 is None:
         return None
 
-    kode_rule_1, rule_l1 = rule_menang_1[0]
-    dugaan_awal = rule_l1["kesimpulan"]
-    cf_lapis1 = rule_l1["nilai_cf"]
+    dugaan_awal = hasil_lapis1["kesimpulan"]
+    cf_lapis1 = hasil_lapis1["cf"]
 
     fakta_lengkap = {
         "dugaan_awal": dugaan_awal,
@@ -95,21 +88,47 @@ def diagnosis_dua_lapis(rules: dict[str, dict], fakta_user: dict[str, str]) -> d
         "aroma": fakta_user["aroma"],
         "bercak_kulit": fakta_user["bercak_kulit"],
     }
-    
-    # Berikan min_skor=2 agar tidak asal tebak jika hanya 1 ciri yang pas
-    hasil_lapis2 = diagnosis(rules_lapis2, fakta_lengkap, min_skor=2)
 
+    hasil_lapis2 = diagnosis(rules_lapis2, fakta_lengkap, cf_premis=cf_lapis1)
     if hasil_lapis2 is None:
         return None
-
-    cf_final = cf_lapis1 * hasil_lapis2["cf"]
 
     return {
         "dugaan_awal": dugaan_awal,
         "kesimpulan": hasil_lapis2["kesimpulan"],
         "rekomendasi": hasil_lapis2["rekomendasi"],
-        "cf": round(cf_final, 3),
-        "is_partial_match": hasil_lapis2["is_partial_match"],
-        "rule_lapis1": kode_rule_1,
+        "cf": hasil_lapis2["cf"],
+        "cf_lapis1": cf_lapis1,
+        "rule_lapis1": hasil_lapis1["rule_codes"][0],
         "rule_lapis2": hasil_lapis2["rule_codes"],
     }
+
+
+def jelaskan_tidak_cocok(rules: dict[str, dict], fakta_user: dict[str, str]) -> dict | None:
+    """Untuk input tanpa rule lapis 2: mengembalikan dugaan awal dan profil khas fasenya.
+
+    Profil khas = rule lapis 2 ber-CF tertinggi untuk dugaan awal tersebut.
+    """
+    rules_lapis1 = {k: v for k, v in rules.items() if v["layer"] == 1}
+    hasil_lapis1 = diagnosis(rules_lapis1, {"warna_kulit": fakta_user["warna_kulit"]})
+    if hasil_lapis1 is None:
+        return None
+
+    dugaan_awal = hasil_lapis1["kesimpulan"]
+    kandidat = [
+        (kode_rule, rule)
+        for kode_rule, rule in rules.items()
+        if rule["layer"] == 2 and rule["kondisi"].get("dugaan_awal") == dugaan_awal
+    ]
+    cf_tertinggi = max((rule["nilai_cf"] for _, rule in kandidat), default=0)
+
+    profil_khas = [
+        {
+            "kode": kode_rule,
+            "kesimpulan": rule["kesimpulan"],
+            "kondisi": {k: v for k, v in rule["kondisi"].items() if k != "dugaan_awal"},
+        }
+        for kode_rule, rule in kandidat
+        if rule["nilai_cf"] == cf_tertinggi
+    ]
+    return {"dugaan_awal": dugaan_awal, "profil_khas": profil_khas}
