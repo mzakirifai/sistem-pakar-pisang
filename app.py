@@ -177,8 +177,13 @@ with tab1:
 
         if "hasil_terakhir" in st.session_state:
             # Tampilkan hasil terakhir dari session_state agar tidak hilang saat tombol unduh diklik
+            fakta_sekarang = fakta_user
             fakta_user = st.session_state.hasil_terakhir["fakta"]
             hasil = st.session_state.hasil_terakhir["hasil"]
+
+            st.caption("Hasil untuk: " + " | ".join(fakta_user.values()))
+            if fakta_sekarang != fakta_user:
+                st.warning("Pilihan ciri di kiri sudah berubah. Klik **Jalankan Diagnosa** untuk memperbarui hasil.")
 
             if hasil is None:
                 st.error("⚠️ Tidak ada aturan yang cocok dengan kombinasi ciri fisik ini. Periksa kembali pengamatan.")
@@ -194,6 +199,9 @@ with tab1:
                 st.markdown(f"**Rekomendasi Penanganan:** {hasil['rekomendasi']}")
                 st.markdown(f"**Tingkat Kepastian (CF Final):** `{hasil['cf']*100:.1f}%` ({hasil['cf']} CF)")
 
+                sumber_lapis1 = rules[hasil["rule_lapis1"]]["sumber"]
+                sumber_lapis2 = " | ".join(dict.fromkeys(rules[k]["sumber"] for k in hasil["rule_lapis2"]))
+
                 # Fitur Download Laporan Hasil Diagnosa
                 laporan_txt = (
                     f"=== LAPORAN HASIL DIAGNOSIS KEMATANGAN PISANG ===\n\n"
@@ -207,7 +215,10 @@ with tab1:
                     f"   - Kesimpulan Final (Lapis 2): {hasil['kesimpulan']} (Rule: {', '.join(hasil['rule_lapis2'])})\n"
                     f"   - Certainty Factor (CF) : {hasil['cf']} ({hasil['cf']*100:.1f}%)\n\n"
                     f"3. REKOMENDASI:\n"
-                    f"   {hasil['rekomendasi']}\n"
+                    f"   {hasil['rekomendasi']}\n\n"
+                    f"4. SUMBER RUJUKAN:\n"
+                    f"   - Lapis 1: {sumber_lapis1}\n"
+                    f"   - Lapis 2: {sumber_lapis2}\n"
                 )
                 st.download_button(
                     label="📥 Unduh Laporan Diagnosis (.txt)",
@@ -221,6 +232,8 @@ with tab1:
                 with st.expander("🔍 Detail Transparansi Penalaran & Diagram Alur (Explainable AI)"):
                     st.write(f"• **Lapis 1:** Rule `{hasil['rule_lapis1']}` ➔ Dugaan Awal: **{hasil['dugaan_awal']}**")
                     st.write(f"• **Lapis 2:** Rule `{', '.join(hasil['rule_lapis2'])}` ➔ Hasil Akhir: **{hasil['kesimpulan']}**")
+                    st.write(f"• **Sumber Lapis 1:** {sumber_lapis1}")
+                    st.write(f"• **Sumber Lapis 2:** {sumber_lapis2}")
                     cf_lapis2 = round(hasil["cf"] / hasil["cf_lapis1"], 3)
                     st.latex(r"CF_{final} = CF_{Lapis1} \times CF_{Lapis2} = " + f"{hasil['cf_lapis1']} \\times {cf_lapis2} = {hasil['cf']}")
                     
