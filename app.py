@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 from database import fetch_attributes, fetch_rules
-from inference import diagnosis_dua_lapis, jelaskan_tidak_cocok
+from inference import contoh_kasus, diagnosis_dua_lapis, jelaskan_tidak_cocok
 
 # Konfigurasi Halaman
 st.set_page_config(
@@ -155,12 +155,22 @@ with tab1:
                 st.session_state[f"input_{nama_atribut}"] = pilihan[0]
             st.session_state.pop("hasil_terakhir", None)
 
+        def isi_contoh(isi: dict[str, str]):
+            for nama_atribut, nilai in isi.items():
+                st.session_state[f"input_{nama_atribut}"] = nilai
+
         st.markdown("<br>", unsafe_allow_html=True)
         col_b1, col_b2 = st.columns(2)
         with col_b1:
             btn_diagnosa = st.button("🚀 Jalankan Diagnosa", type="primary", use_container_width=True)
         with col_b2:
             st.button("🔄 Reset Form", on_click=reset_form, use_container_width=True)
+
+        with st.expander("🧪 Contoh kasus"):
+            st.caption("Klik untuk mengisi form dengan ciri khas tiap kelas, lalu tekan Jalankan Diagnosa.")
+            kolom_contoh = st.columns(2)
+            for i, (kelas, isi) in enumerate(contoh_kasus(rules).items()):
+                kolom_contoh[i % 2].button(kelas, key=f"contoh_{kelas}", on_click=isi_contoh, args=(isi,), use_container_width=True)
 
     with col_output:
         st.markdown("#### 2. Hasil Diagnosa")

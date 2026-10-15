@@ -104,6 +104,22 @@ def diagnosis_dua_lapis(rules: dict[str, dict], fakta_user: dict[str, str]) -> d
     }
 
 
+def contoh_kasus(rules: dict[str, dict]) -> dict[str, dict[str, str]]:
+    """Contoh input tiap kelas akhir, diambil dari rule lapis 2 ber-CF 1,0 (profil khas) dan warna lapis 1."""
+    warna_per_dugaan = {
+        rule["kesimpulan"]: rule["kondisi"]["warna_kulit"]
+        for rule in rules.values()
+        if rule["layer"] == 1
+    }
+    contoh: dict[str, dict[str, str]] = {}
+    for rule in rules.values():
+        if rule["layer"] == 2 and rule["nilai_cf"] == 1.0 and rule["kesimpulan"] not in contoh:
+            ciri = dict(rule["kondisi"])
+            dugaan_awal = ciri.pop("dugaan_awal")
+            contoh[rule["kesimpulan"]] = {"warna_kulit": warna_per_dugaan[dugaan_awal], **ciri}
+    return contoh
+
+
 def jelaskan_tidak_cocok(rules: dict[str, dict], fakta_user: dict[str, str]) -> dict | None:
     """Untuk input tanpa rule lapis 2: mengembalikan dugaan awal dan profil khas fasenya.
 

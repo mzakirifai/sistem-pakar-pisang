@@ -2,7 +2,7 @@
 
 import itertools
 
-from inference import diagnosis_dua_lapis, jelaskan_tidak_cocok
+from inference import contoh_kasus, diagnosis_dua_lapis, jelaskan_tidak_cocok
 
 
 def _l2(kode, kes, cf, dugaan, tekstur, aroma, bercak):
@@ -14,7 +14,7 @@ def _l2(kode, kes, cf, dugaan, tekstur, aroma, bercak):
 
 def _l1(kode, kes, cf, warna):
     return kode, {"kesimpulan": kes, "rekomendasi": "-", "nilai_cf": cf, "layer": 1,
-                "kondisi": {"warna_kulit": warna}}
+                  "kondisi": {"warna_kulit": warna}}
 
 
 RULES = dict([
@@ -94,3 +94,10 @@ def test_jelaskan_tidak_cocok_memberi_profil_khas():
     assert [p["kode"] for p in info["profil_khas"]] == ["K1"]
     info = jelaskan_tidak_cocok(RULES, _fakta("Kuning penuh", "Keras", "Tidak beraroma", "Tidak ada"))
     assert [p["kode"] for p in info["profil_khas"]] == ["O1", "O2", "T1"]
+
+
+def test_contoh_kasus_tiap_kelas_menghasilkan_kelasnya_sendiri():
+    contoh = contoh_kasus(RULES)
+    assert set(contoh) == {"Mentah", "Mengkal", "Matang Optimal", "Terlalu Matang"}
+    for kelas, fakta in contoh.items():
+        assert diagnosis_dua_lapis(RULES, fakta)["kesimpulan"] == kelas
