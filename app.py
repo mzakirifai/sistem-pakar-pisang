@@ -4,6 +4,7 @@ import streamlit as st
 import pandas as pd
 from database import fetch_attributes, fetch_rules
 from inference import contoh_kasus, diagnosis_dua_lapis, jelaskan_tidak_cocok
+from riwayat import riwayat_ke_csv, waktu_wib
 
 # Konfigurasi Halaman
 st.set_page_config(
@@ -179,11 +180,13 @@ with tab1:
             hasil_baru = diagnosis_dua_lapis(rules, fakta_user)
             st.session_state.hasil_terakhir = {"fakta": fakta_user.copy(), "hasil": hasil_baru}
             if hasil_baru is not None:
-                # Simpan ke Riwayat
-                st.session_state.history.append({
-                    "fakta": fakta_user.copy(),
-                    "hasil": hasil_baru,
-                })
+                # Simpan ke Riwayat (dilewati bila sama dengan entri terakhir)
+                if not st.session_state.history or st.session_state.history[-1]["fakta"] != fakta_user:
+                    st.session_state.history.append({
+                        "fakta": fakta_user.copy(),
+                        "hasil": hasil_baru,
+                        "waktu": waktu_wib(),
+                    })
 
         if "hasil_terakhir" in st.session_state:
             # Tampilkan hasil terakhir dari session_state agar tidak hilang saat tombol unduh diklik
@@ -267,13 +270,22 @@ with tab1:
     # Bagian Riwayat Diagnosis di Bawah Tab 1
     if st.session_state.history:
         st.markdown("---")
-        col_h1, col_h2 = st.columns([4, 1])
+        col_h1, col_h2, col_h3 = st.columns([3, 1, 1])
         with col_h1:
             st.markdown("### 📜 Riwayat Diagnosis Sesi Ini")
         with col_h2:
+            st.download_button(
+                "⬇️ Unduh CSV",
+                data=riwayat_ke_csv(st.session_state.history),
+                file_name="riwayat_diagnosis.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+        with col_h3:
             if st.button("🗑️ Hapus Riwayat", use_container_width=True):
                 st.session_state.history = []
                 st.rerun()
+        st.caption("CSV memakai pemisah titik koma (;) supaya langsung rapi di Excel berbahasa Indonesia.")
 
         for item in reversed(st.session_state.history):
             f = item["fakta"]
@@ -294,6 +306,10 @@ with tab1:
                 <br>
                 <span style="color: #475569; font-size: 0.88em;">
                     📍 <b>Kondisi:</b> {f['warna_kulit']} | {f['tekstur']} | {f['aroma']} | {f['bercak_kulit']}
+                </span>
+                <br>
+                <span style="color: #64748B; font-size: 0.82em;">
+                    🔗 Rule {h['rule_lapis1']} ➔ {', '.join(h['rule_lapis2'])} &nbsp;·&nbsp; 🕒 {item.get('waktu', '-')} WIB
                 </span>
             </div>
             """, unsafe_allow_html=True)
