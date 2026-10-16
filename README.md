@@ -11,7 +11,7 @@ Aplikasi dibuat dengan Python dan Streamlit. Basis pengetahuan (aturan) disimpan
 - **Diagnosis 2 lapis.** Lapis 1 menentukan dugaan awal fase (Mentah, Mengkal, atau Matang) dari warna kulit. Lapis 2 menggabungkan dugaan awal itu dengan tekstur, aroma, dan bercak untuk menghasilkan kelas akhir (Mentah, Mengkal, Matang Optimal, atau Terlalu Matang) beserta rekomendasi penanganan.
 - **Aturan hanya menyala bila semua kondisinya terpenuhi.** Jika kombinasi ciri tidak ada di basis pengetahuan, aplikasi tidak menebak. Aplikasi menampilkan pesan dan profil ciri khas dari fase yang diduga, supaya pengamatan bisa diperiksa kembali.
 - **Transparansi penalaran.** Hasil diagnosis disertai rule yang menyala dan rincian perhitungan CF. Di tab Basis Pengetahuan, tiap rule menampilkan sumber rujukannya.
-- **Riwayat diagnosis** selama sesi berjalan, dan laporan hasil yang bisa diunduh.
+- **Riwayat diagnosis** Riwayat diagnosis selama sesi (tanpa entri kembar, lengkap dengan rule dan jam) yang bisa diunduh sebagai CSV, tombol contoh kasus untuk mencoba, dan laporan hasil yang bisa diunduh
 
 ---
 
@@ -82,8 +82,10 @@ Batasan:
 ├── config.py                # Konfigurasi environment
 ├── database.py              # Koneksi dan query MySQL
 ├── inference.py             # Mesin inferensi Forward Chaining dan CF
+├── riwayat.py               # Jam WIB dan ekspor riwayat ke CSV
 ├── test_inference.py        # Uji mesin inferensi (tanpa database)
 ├── test_koneksi.py          # Uji manual koneksi database dan satu contoh diagnosis
+├── test_riwayat.py          # Uji ekspor riwayat
 ├── .env.example             # Template konfigurasi environment
 ├── .gitignore
 ├── requirements.txt         # Dependensi Python
@@ -135,7 +137,7 @@ streamlit run app.py
 
 ```bash
 pip install pytest
-python -m pytest test_inference.py    # tanpa database
+python -m pytest test_inference.py test_riwayat.py    # tanpa database
 python test_koneksi.py                # perlu database yang sudah diimpor
 ```
 
